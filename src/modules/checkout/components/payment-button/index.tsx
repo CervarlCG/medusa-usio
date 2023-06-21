@@ -7,6 +7,7 @@ import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js"
 import { useElements, useStripe } from "@stripe/react-stripe-js"
 import { useCart } from "medusa-react"
 import React, { useEffect, useState } from "react"
+import { useUpdatePaymentSession, useUpdateCart } from "medusa-react"
 
 type PaymentButtonProps = {
   paymentSession?: PaymentSession | null
@@ -39,6 +40,8 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({ paymentSession }) => {
       return
     }
 
+    console.log(cart)
+
     setNotReady(false)
   }, [cart])
 
@@ -47,7 +50,7 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({ paymentSession }) => {
       return (
         <StripePaymentButton session={paymentSession} notReady={notReady} />
       )
-    case "manual":
+    case "usio":
       return <ManualTestPaymentButton notReady={notReady} />
     case "paypal":
       return (
@@ -223,14 +226,65 @@ const PayPalPaymentButton = ({
 const ManualTestPaymentButton = ({ notReady }: { notReady: boolean }) => {
   const [submitting, setSubmitting] = useState(false)
 
-  const { onPaymentCompleted } = useCheckout()
+  const { onPaymentCompleted, cart } = useCheckout()
+  const { mutateAsync: updateCart } = useUpdateCart(cart?.id || "")
+  const { mutateAsync: updatePaymentSession } = useUpdatePaymentSession(
+    cart?.id || ""
+  )
 
   const handlePayment = () => {
     setSubmitting(true)
+    requestToken()
+      .then((usioToken) =>
+        updateCart({
+          billing_address: {
+            metadata: {
+              ...(cart?.billing_address.metadata || {}),
+              usioToken: usioToken,
+            },
+          },
+        })
+      )
+      .then(() => onPaymentCompleted())
+      .catch((err: any) => alert("Error: " + err?.message))
+      .finally(() => {
+        setSubmitting(false)
+      })
+  }
 
-    onPaymentCompleted()
+  const requestToken = async () => {
+    const { url, merchantKey } = cart?.payment_session?.data || {
+      url: "",
+      merchantKey: "",
+    }
+    const data = await fetch(url as string, {
+      method: "POST",
+      body: JSON.stringify({
+        MerchantKey: merchantKey,
+        PaymentType: "cc",
+        EmailAddress: cart?.email,
+        CardNumber: (
+          document.getElementById("usio-cc") as HTMLInputElement | null
+        )?.value,
+        ExpDate: (
+          document.getElementById("usio-date") as HTMLInputElement | null
+        )?.value,
+        CVV: (document.getElementById("usio-cvv") as HTMLInputElement | null)
+          ?.value,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-    setSubmitting(false)
+    if (!data.ok) throw new Error("Failed to request card token.")
+
+    const body = await data.json()
+
+    if (body.Status !== "success")
+      throw new Error("Failed to request card token. Invalid response.")
+
+    return body.Confirmation
   }
 
   return (

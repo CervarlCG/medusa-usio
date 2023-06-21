@@ -4,6 +4,7 @@ import clsx from "clsx"
 import React from "react"
 import PaymentStripe from "../payment-stripe"
 import PaymentTest from "../payment-test"
+import PaymentUSIO from "../payment-usio"
 
 type PaymentContainerProps = {
   paymentSession: PaymentSession
@@ -28,6 +29,10 @@ const PaymentInfoMap: Record<string, { title: string; description: string }> = {
   manual: {
     title: "Test payment",
     description: "Test payment using medusa-payment-manual",
+  },
+  usio: {
+    title: "Credit Card",
+    description: "Some...",
   },
 }
 
@@ -85,6 +90,8 @@ const PaymentElement = ({
     case "manual":
       // We only display the test payment form if we are in a development environment
       return process.env.NODE_ENV === "development" ? <PaymentTest /> : null
+    case "usio":
+      return <PaymentUSIO />
     default:
       return null
   }

@@ -74,6 +74,8 @@ const Shipping: React.FC<ShippingProps> = ({ cart }) => {
     fn(value)
   }
 
+  console.log(shipping_options, cart)
+
   // Memoized shipping method options
   const shippingMethods: ShippingOption[] = useMemo(() => {
     if (shipping_options && cart?.region) {
